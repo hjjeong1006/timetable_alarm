@@ -1005,7 +1005,7 @@ function updateHeader(){
       const allEmpty=postLunch.length>0&&postLunch.every(p=>!((sched[dayKey]||[])[ptimes.indexOf(p)]||'').trim());
       if(allEmpty){q('hd-right').innerHTML=`<div class="hd-status-row"><span class="hd-badge hdb-out">하교</span></div>`;found=true;}
     }
-    for(let i=0;i<ptimes.length;i++){
+    if(!found)for(let i=0;i<ptimes.length;i++){
       const p=ptimes[i],sm=toM(p.s)*60,em=toM(p.e)*60;
       if(nowSec>=sm&&nowSec<em){
         const remainSec=em-nowSec;
