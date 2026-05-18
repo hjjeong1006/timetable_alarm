@@ -980,6 +980,7 @@ function fmtCountdown(totalSec){
 }
 
 let _prevProgressVisible=false;
+let _prevMin=-1;
 function updateHeader(){
   const now=_now();
   const{ampm,h12,min,sec}=nowParts12();
@@ -997,6 +998,13 @@ function updateHeader(){
   } else {
     const today=DAYS[now.getDay()],dayKey=WDAYS.includes(today)?today:'월';
     let found=false;
+    /* 점심 이후 모든 교시 과목명이 비어있으면 점심 종료 시점부터 하교로 표시 */
+    const lunchEntry=ptimes.find(p=>p.isLunch);
+    if(lunchEntry&&nowSec>=toM(lunchEntry.e)*60){
+      const postLunch=ptimes.filter(p=>!p.isLunch&&toM(p.s)>=toM(lunchEntry.e));
+      const allEmpty=postLunch.length>0&&postLunch.every(p=>!((sched[dayKey]||[])[ptimes.indexOf(p)]||'').trim());
+      if(allEmpty){q('hd-right').innerHTML=`<div class="hd-status-row"><span class="hd-badge hdb-out">하교</span></div>`;found=true;}
+    }
     for(let i=0;i<ptimes.length;i++){
       const p=ptimes[i],sm=toM(p.s)*60,em=toM(p.e)*60;
       if(nowSec>=sm&&nowSec<em){
@@ -1076,21 +1084,25 @@ function updateHeader(){
     }
   }
 
-  if(parseInt(sec)===0){
-    const dateKey=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
-    if(!fired[dateKey])fired[dateKey]=new Set();
-    /* 같은 분 알람 중 우선순위 가장 높은 1개만 발화 */
-    const PRIORITY={lunch:0,start:1,pre:2,breakTime:3,end:4,custom:5};
-    const nowAlarms=getAlarms().filter(a=>a.m===nowM&&!fired[dateKey].has(a.key));
-    if(nowAlarms.length){
-      nowAlarms.sort((a,b)=>(PRIORITY[a.type]??9)-(PRIORITY[b.type]??9));
-      /* 모든 key를 fired에 등록 (중복 방지), 최우선 1개만 울림 */
-      nowAlarms.forEach(a=>fired[dateKey].add(a.key));
-      fireAlarm(nowAlarms[0].label);
-    }
-    /* 매 분마다 시간표 테이블 현재 교시 상태 갱신 */
+  /* 분이 바뀔 때마다 시간표·타임라인·알람 처리
+     sec===0 체크는 인터벌 드리프트로 :00을 놓칠 수 있어 분 변화 감지 방식으로 통합 */
+  if(nowM!==_prevMin){
+    const isInit=_prevMin===-1;
+    _prevMin=nowM;
     buildTimetable();
     if(timelineOpen)renderTimeline();
+    /* 첫 로드 시에는 알람 체크 생략 (이미 지난 분 알람이 뜨는 것 방지) */
+    if(!isInit){
+      const dateKey=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+      if(!fired[dateKey])fired[dateKey]=new Set();
+      const PRIORITY={lunch:0,start:1,pre:2,breakTime:3,end:4,custom:5};
+      const nowAlarms=getAlarms().filter(a=>a.m===nowM&&!fired[dateKey].has(a.key));
+      if(nowAlarms.length){
+        nowAlarms.sort((a,b)=>(PRIORITY[a.type]??9)-(PRIORITY[b.type]??9));
+        nowAlarms.forEach(a=>fired[dateKey].add(a.key));
+        fireAlarm(nowAlarms[0].label);
+      }
+    }
   }
 
   const progressNowVisible=pw.style.display==='block';
