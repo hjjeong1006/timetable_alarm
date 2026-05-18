@@ -1982,7 +1982,14 @@ if(localStorage.getItem('sa7_ver')!==DATA_VERSION){
 if(!ptimes.length){ptimes=buildDefault();saveState();}
 applyGuideState();
 updateSchoolDisplay();buildTimetable();
-setInterval(updateHeader,1000);updateHeader();
+/* Electron: 메인 프로세스 틱으로 구동 (백그라운드 스로틀링 없음)
+   브라우저: 기존 setInterval 사용 */
+if(window.electronAPI){
+  window.electronAPI.onMainTick(updateHeader);
+} else {
+  setInterval(updateHeader,1000);
+}
+updateHeader();
 document.querySelectorAll('.drawer-body').forEach(body=>{
   body.addEventListener('scroll',()=>{
     const head=body.previousElementSibling;
